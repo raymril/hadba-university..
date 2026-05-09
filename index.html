@@ -293,19 +293,18 @@ tr:hover td{background:rgba(255,255,255,.018)}
 html,
 body{
   max-width:100%;
-  overflow-x:auto;
+  overflow-x:hidden;
 }
 
-*{
-  box-sizing:border-box;
-}
-
-table,
 pre,
 .code-block,
 .long-text{
   overflow-x:auto;
   display:block;
+  max-width:100%;
+}
+.table-wrap{
+  overflow-x:auto;
   max-width:100%;
 }
 
@@ -2201,7 +2200,94 @@ go = function(id, el) {
 };
 
 </script>
-      <script src="api.js"></script>
+      <script>
+/* ══════════════════════════════════════════
+   MOCK API — يعمل بدون باك-اند (وضع تجريبي)
+══════════════════════════════════════════ */
+const API = {
+  Auth: {
+    _token: null, _user: null,
+    setToken(t){ this._token = t; },
+    setUser(u){ this._user = u; },
+    getToken(){ return this._token; }
+  },
+
+  /* تسجيل الدخول: يُرسل للـ catch ليتحول للمصادقة المحلية */
+  async login(u, p){ throw new Error('local-auth'); },
+
+  /* القراءة: يُرسل للـ catch فيُستخدم البيانات المحلية */
+  async getStudents(){ throw new Error('offline'); },
+  async getTeachers(){ throw new Error('offline'); },
+  async getSubjects(){ throw new Error('offline'); },
+
+  /* الأقسام: يُرجع قيماً ثابتة */
+  async getDepartments(){
+    return { data:[
+      {id:1, name:'علوم الحاسوب'},
+      {id:2, name:'هندسة البرمجيات'},
+      {id:3, name:'الذكاء الاصطناعي'},
+      {id:4, name:'نظم المعلومات'}
+    ]};
+  },
+
+  /* ── طلاب ── */
+  async createStudent(b){
+    const deptName = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
+    adminStudents.push({dbId:Date.now(), id:b.student_no, fname:b.fname, mname:b.mname||'', lname:b.lname, dept:deptName, year:b.study_year, gpa:0, email:b.email||'', phone:b.phone||'', status:b.status});
+    return {success:true};
+  },
+  async updateStudent(id, b){
+    const deptName = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
+    const s = adminStudents.find(x=>x.dbId===id);
+    if(s) Object.assign(s, {fname:b.fname, mname:b.mname||'', lname:b.lname, dept:deptName, year:b.study_year, email:b.email||'', phone:b.phone||'', status:b.status});
+    return {success:true};
+  },
+  async deleteStudent(id){
+    const i = adminStudents.findIndex(x=>x.dbId===id);
+    if(i!==-1) adminStudents.splice(i,1);
+    return {success:true};
+  },
+
+  /* ── أساتذة ── */
+  async createTeacher(b){
+    const deptName = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
+    adminTeachers.push({dbId:Date.now(), name:b.name, spec:b.speciality||'', dept:deptName, rank:b.academic_rank||'مدرّس', email:b.email||'', phone:b.phone||'', subjects:'', status:'active'});
+    return {success:true};
+  },
+  async updateTeacher(id, b){
+    const deptName = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
+    const t = adminTeachers.find(x=>x.dbId===id);
+    if(t) Object.assign(t, {name:b.name, spec:b.speciality||'', dept:deptName, rank:b.academic_rank||'مدرّس', email:b.email||'', phone:b.phone||'', status:'active'});
+    return {success:true};
+  },
+  async deleteTeacher(id){
+    const i = adminTeachers.findIndex(x=>x.dbId===id);
+    if(i!==-1) adminTeachers.splice(i,1);
+    return {success:true};
+  },
+
+  /* ── مواد ── */
+  async createSubject(b){
+    const deptName    = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
+    const teacherName = adminTeachers.find(t=>t.dbId===b.teacher_id)?.name || '—';
+    adminSubjects.push({dbId:Date.now(), name:b.name, code:b.code, hours:b.credit_hours, dept:deptName, teacher:teacherName, status:b.status||'active'});
+    return {success:true};
+  },
+  async updateSubject(id, b){
+    const deptName    = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
+    const teacherName = adminTeachers.find(t=>t.dbId===b.teacher_id)?.name || '—';
+    const s = adminSubjects.find(x=>x.dbId===id);
+    if(s) Object.assign(s, {name:b.name, code:b.code, hours:b.credit_hours, dept:deptName, teacher:teacherName, status:b.status||'active'});
+    return {success:true};
+  },
+  async deleteSubject(id){
+    const i = adminSubjects.findIndex(x=>x.dbId===id);
+    if(i!==-1) adminSubjects.splice(i,1);
+    return {success:true};
+  },
+};
+</script>
+
 
 </body>
 </html>
