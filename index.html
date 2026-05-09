@@ -290,6 +290,58 @@ tr:hover td{background:rgba(255,255,255,.018)}
   th,td{padding:.6rem .9rem}
   main{padding:.9rem}
 }
+html,
+body{
+  max-width:100%;
+  overflow-x:auto;
+}
+
+*{
+  box-sizing:border-box;
+}
+
+table,
+pre,
+.code-block,
+.long-text{
+  overflow-x:auto;
+  display:block;
+  max-width:100%;
+}
+
+p,
+span,
+td,
+div{
+  word-break:break-word;
+  overflow-wrap:break-word;
+}
+
+.container,
+.card,
+.content{
+  max-width:100%;
+}
+
+@media (max-width:768px){
+
+  body{
+    padding:8px;
+  }
+
+  table{
+    display:block;
+    overflow-x:auto;
+    white-space:nowrap;
+  }
+
+  input,
+  button,
+  textarea,
+  select{
+    max-width:100%;
+  }
+}
 </style>
 </head>
 <body>
