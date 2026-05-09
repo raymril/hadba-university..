@@ -1277,16 +1277,39 @@ function togglePw() {
   inp.type = inp.type === 'password' ? 'text' : 'password';
 }
 
-function doLogin() {
+async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
   const err = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
   if (!u || !p) { err.textContent='⚠️ يرجى ملء جميع الحقول'; err.classList.add('show'); return; }
-  const match = USERS[currentRole].find(x => x.username===u && x.password===p);
-  if (!match) { err.classList.add('show'); err.textContent='❌ اسم المستخدم أو كلمة المرور غير صحيحة'; return; }
-  err.classList.remove('show');
-  currentUser = match;
-  login(currentRole);
+
+  const origText = btn.textContent;
+  btn.textContent = '...جاري التحقق';
+  btn.disabled = true;
+  try {
+    const data = await API.login(u, p);
+    API.Auth.setToken(data.token);
+    API.Auth.setUser(data.user);
+    const userRole = data.user?.role || currentRole;
+    currentUser = { name: data.user?.name || u, avatar: u.slice(0,2), role: userRole };
+    err.classList.remove('show');
+    login(userRole);
+    if (userRole === 'admin') loadAllAdminData();
+  } catch (e) {
+    const match = (USERS[currentRole] || []).find(x => x.username===u && x.password===p);
+    if (match) {
+      currentUser = match;
+      err.classList.remove('show');
+      login(currentRole);
+    } else {
+      err.classList.add('show');
+      err.textContent = '❌ اسم المستخدم أو كلمة المرور غير صحيحة';
+    }
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
 }
 
 let role='';
@@ -1326,7 +1349,7 @@ function login(r){
     pill.textContent='مدير النظام';pill.className='role-pill admin';
     showSection('a-dash');
     setActiveNav(document.querySelector('#admin-nav .nav-link'));
-    buildAdminDash();buildAdminStudents();buildAdminTeachers();buildAdminSubjects();buildEnrollment();
+    buildAdminDash();buildAdminStudents();buildAdminTeachers();buildAdminSubjects();buildEnrollment();loadAllAdminData();
   }
 }
 function logout(){
@@ -1500,6 +1523,75 @@ function buildStats(){
 /* ══════════════════════════════════════════
    ADMIN SECTION BUILDERS
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   LOADERS — تحميل البيانات من الباك اند
+══════════════════════════════════════════ */
+
+async function loadAdminStudents() {
+  try {
+    const res = await API.getStudents({ limit: 200 });
+    adminStudents = (res.data || []).map(s => ({
+      dbId: s.id,
+      id: s.student_no,
+      fname: s.fname, mname: s.mname||'', lname: s.lname,
+      dept: s.dept_name || '—',
+      year: s.study_year,
+      gpa: s.gpa || 0,
+      email: s.email || '',
+      phone: s.phone || '',
+      status: s.status,
+    }));
+  } catch(e) { /* إبقاء البيانات التجريبية */ }
+  buildAdminStudents();
+}
+
+async function loadAdminTeachers() {
+  try {
+    const res = await API.getTeachers({ limit: 200 });
+    adminTeachers = (res.data || []).map(t => ({
+      dbId: t.id,
+      name: t.name,
+      spec: t.speciality || '',
+      dept: t.dept_name || '—',
+      rank: t.academic_rank || 'مدرّس',
+      email: t.email || '',
+      phone: t.phone || '',
+      subjects: '',
+      status: t.status,
+    }));
+  } catch(e) { /* إبقاء البيانات التجريبية */ }
+  buildAdminTeachers();
+}
+
+async function loadAdminSubjects() {
+  try {
+    const res = await API.getSubjects({ limit: 200 });
+    adminSubjects = (res.data || []).map(s => ({
+      dbId: s.id,
+      name: s.name,
+      code: s.code,
+      hours: s.credit_hours,
+      dept: s.dept_name || '—',
+      teacher: s.teacher_name || '—',
+      status: s.status,
+    }));
+  } catch(e) { /* إبقاء البيانات التجريبية */ }
+  buildAdminSubjects();
+}
+
+async function loadDepts() {
+  try {
+    const res = await API.getDepartments();
+    window._depts = res.data || [];
+  } catch(e) { window._depts = []; }
+}
+
+async function loadAllAdminData() {
+  await loadDepts();
+  await Promise.all([loadAdminStudents(), loadAdminTeachers(), loadAdminSubjects()]);
+  buildAdminDash();
+}
+
 function buildAdminDash(){
   setEl('a-total-students', adminStudents.length);
   setEl('a-total-teachers', adminTeachers.length);
@@ -1644,25 +1736,34 @@ function openStudentModal(idx=-1){
   openModal('studentModal');
 }
 
-function saveStudent(){
+async function saveStudent(){
   const fname=document.getElementById('stu-fname').value.trim();
   const mname=document.getElementById('stu-mname').value.trim();
   const lname=document.getElementById('stu-lname').value.trim();
   if(!fname||!lname){showToast('⚠️ الاسم الأول والعائلة مطلوبان');return;}
-  const student={
-    fname,mname,lname,
-    id:document.getElementById('stu-id').value.trim()||`CS-${Date.now()}`,
-    dept:document.getElementById('stu-dept').value,
-    year:document.getElementById('stu-year').value,
-    gpa:+(Math.random()*2+2).toFixed(2),
-    email:document.getElementById('stu-email').value.trim(),
-    phone:document.getElementById('stu-phone').value.trim(),
-    status:document.getElementById('stu-status').value,
+  const deptName = document.getElementById('stu-dept').value;
+  const deptMatch = (window._depts||[]).find(d=>d.name===deptName);
+  const body={
+    fname, mname, lname,
+    student_no: document.getElementById('stu-id').value.trim() || `CS-${Date.now()}`,
+    dept_id: deptMatch ? deptMatch.id : null,
+    study_year: document.getElementById('stu-year').value,
+    email: document.getElementById('stu-email').value.trim(),
+    phone: document.getElementById('stu-phone').value.trim(),
+    status: document.getElementById('stu-status').value,
   };
-  if(editStudentIdx===-1){adminStudents.push(student);showToast('✅ تم إضافة الطالب بنجاح');}
-  else{adminStudents[editStudentIdx]=student;showToast('✅ تم تحديث بيانات الطالب');}
-  closeModal('studentModal');
-  buildAdminStudents();buildAdminDash();
+  try {
+    if(editStudentIdx===-1){
+      await API.createStudent(body);
+      showToast('✅ تم إضافة الطالب وحفظه في قاعدة البيانات');
+    } else {
+      await API.updateStudent(adminStudents[editStudentIdx].dbId, body);
+      showToast('✅ تم تحديث بيانات الطالب');
+    }
+    closeModal('studentModal');
+    await loadAdminStudents();
+    buildAdminDash();
+  } catch(e) { showToast('❌ '+e.message); }
 }
 
 function openTeacherModal(idx=-1){
@@ -1687,23 +1788,32 @@ function openTeacherModal(idx=-1){
   openModal('teacherModal');
 }
 
-function saveTeacher(){
+async function saveTeacher(){
   const name=document.getElementById('tea-name').value.trim();
   if(!name){showToast('⚠️ اسم الأستاذ مطلوب');return;}
-  const teacher={
+  const deptName = document.getElementById('tea-dept').value;
+  const deptMatch = (window._depts||[]).find(d=>d.name===deptName);
+  const body={
     name,
-    spec:document.getElementById('tea-spec').value.trim(),
-    dept:document.getElementById('tea-dept').value,
-    rank:document.getElementById('tea-rank').value,
-    email:document.getElementById('tea-email').value.trim(),
-    phone:document.getElementById('tea-phone').value.trim(),
-    subjects:document.getElementById('tea-subjects').value.trim(),
-    status:'active',
+    speciality: document.getElementById('tea-spec').value.trim(),
+    dept_id: deptMatch ? deptMatch.id : null,
+    academic_rank: document.getElementById('tea-rank').value,
+    email: document.getElementById('tea-email').value.trim(),
+    phone: document.getElementById('tea-phone').value.trim(),
+    status: 'active',
   };
-  if(editTeacherIdx===-1){adminTeachers.push(teacher);showToast('✅ تم إضافة الأستاذ بنجاح');}
-  else{adminTeachers[editTeacherIdx]=teacher;showToast('✅ تم تحديث بيانات الأستاذ');}
-  closeModal('teacherModal');
-  buildAdminTeachers();buildAdminDash();
+  try {
+    if(editTeacherIdx===-1){
+      await API.createTeacher(body);
+      showToast('✅ تم إضافة الأستاذ وحفظه في قاعدة البيانات');
+    } else {
+      await API.updateTeacher(adminTeachers[editTeacherIdx].dbId, body);
+      showToast('✅ تم تحديث بيانات الأستاذ');
+    }
+    closeModal('teacherModal');
+    await loadAdminTeachers();
+    buildAdminDash();
+  } catch(e) { showToast('❌ '+e.message); }
 }
 
 function openSubjectModal(idx=-1){
@@ -1729,29 +1839,50 @@ function openSubjectModal(idx=-1){
   openModal('subjectModal');
 }
 
-function saveSubject(){
+async function saveSubject(){
   const name=document.getElementById('sub-name').value.trim();
   const code=document.getElementById('sub-code').value.trim();
   if(!name||!code){showToast('⚠️ اسم المادة والكود مطلوبان');return;}
-  const subject={
-    name,code,
-    hours:+document.getElementById('sub-hours').value,
-    dept:document.getElementById('sub-dept').value,
-    teacher:document.getElementById('sub-teacher').value,
-    status:document.getElementById('sub-status').value,
+  const deptName = document.getElementById('sub-dept').value;
+  const deptMatch = (window._depts||[]).find(d=>d.name===deptName);
+  const teacherName = document.getElementById('sub-teacher').value;
+  const teacherMatch = adminTeachers.find(t=>t.name===teacherName);
+  const body={
+    name, code,
+    credit_hours: +document.getElementById('sub-hours').value,
+    dept_id: deptMatch ? deptMatch.id : null,
+    teacher_id: teacherMatch ? teacherMatch.dbId : null,
+    status: document.getElementById('sub-status').value,
   };
-  if(editSubjectIdx===-1){adminSubjects.push(subject);showToast('✅ تم إضافة المادة بنجاح');}
-  else{adminSubjects[editSubjectIdx]=subject;showToast('✅ تم تحديث المادة');}
-  closeModal('subjectModal');
-  buildAdminSubjects();buildAdminDash();
+  try {
+    if(editSubjectIdx===-1){
+      await API.createSubject(body);
+      showToast('✅ تم إضافة المادة وحفظها في قاعدة البيانات');
+    } else {
+      await API.updateSubject(adminSubjects[editSubjectIdx].dbId, body);
+      showToast('✅ تم تحديث المادة');
+    }
+    closeModal('subjectModal');
+    await loadAdminSubjects();
+    buildAdminDash();
+  } catch(e) { showToast('❌ '+e.message); }
 }
 
 function confirmDelete(type,idx,name){
   document.getElementById('confirmName').textContent=name;
-  document.getElementById('confirmDeleteBtn').onclick=()=>{
-    if(type==='student'){adminStudents.splice(idx,1);buildAdminStudents();buildAdminDash();showToast('🗑 تم حذف الطالب');}
-    else if(type==='teacher'){adminTeachers.splice(idx,1);buildAdminTeachers();buildAdminDash();showToast('🗑 تم حذف الأستاذ');}
-    else if(type==='subject'){adminSubjects.splice(idx,1);buildAdminSubjects();buildAdminDash();showToast('🗑 تم حذف المادة');}
+  document.getElementById('confirmDeleteBtn').onclick=async()=>{
+    try {
+      if(type==='student'){
+        await API.deleteStudent(adminStudents[idx].dbId);
+        await loadAdminStudents(); buildAdminDash(); showToast('🗑 تم حذف الطالب');
+      } else if(type==='teacher'){
+        await API.deleteTeacher(adminTeachers[idx].dbId);
+        await loadAdminTeachers(); buildAdminDash(); showToast('🗑 تم حذف الأستاذ');
+      } else if(type==='subject'){
+        await API.deleteSubject(adminSubjects[idx].dbId);
+        await loadAdminSubjects(); buildAdminDash(); showToast('🗑 تم حذف المادة');
+      }
+    } catch(e) { showToast('❌ '+e.message); }
     closeModal('confirmModal');
   };
   openModal('confirmModal');
