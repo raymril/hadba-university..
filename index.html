@@ -963,6 +963,7 @@ div{
           <div style="display:flex;gap:.7rem;margin-top:1rem;flex-wrap:wrap">
             <button class="btn btn-g" onclick="showToast('✅ تم أخذ نسخة احتياطية')">💾 نسخ احتياطي</button>
             <button class="btn btn-o" onclick="showToast('📤 تم تصدير البيانات')">📤 تصدير البيانات</button>
+            <button class="btn btn-r" onclick="confirmResetData()">🔄 إعادة تعيين البيانات</button>
           </div>
         </div>
         <div class="ib">
@@ -1111,56 +1112,120 @@ div{
 
 <script>
 /* ══════════════════════════════════════════
-   DATA
+   DATA — localStorage persistence
 ══════════════════════════════════════════ */
+
+/* ── البيانات الافتراضية ── */
+const DEFAULT_DATA = {
+  adminStudents: [
+    {dbId:1,id:'CS-2024-001',fname:'أيمن',mname:'محمد',lname:'الخزرجي',dept:'علوم الحاسوب',year:'الثالثة',gpa:3.42,email:'ayman@hadba.edu.iq',phone:'07701234567',status:'active'},
+    {dbId:2,id:'CS-2024-002',fname:'سارة',mname:'أحمد',lname:'العبيدي',dept:'علوم الحاسوب',year:'الثالثة',gpa:3.85,email:'sara@hadba.edu.iq',phone:'07701234568',status:'active'},
+    {dbId:3,id:'CS-2024-003',fname:'محمد',mname:'علي',lname:'الجبوري',dept:'هندسة البرمجيات',year:'الثانية',gpa:2.60,email:'mohammed@hadba.edu.iq',phone:'07701234569',status:'active'},
+    {dbId:4,id:'CS-2024-004',fname:'فاطمة',mname:'حسن',lname:'التميمي',dept:'علوم الحاسوب',year:'الثالثة',gpa:3.15,email:'fatima@hadba.edu.iq',phone:'07701234570',status:'active'},
+    {dbId:5,id:'CS-2024-005',fname:'علي',mname:'عمر',lname:'الشمري',dept:'الذكاء الاصطناعي',year:'الأولى',gpa:1.90,email:'ali@hadba.edu.iq',phone:'07701234571',status:'inactive'},
+    {dbId:6,id:'CS-2024-006',fname:'نور',mname:'خالد',lname:'الربيعي',dept:'نظم المعلومات',year:'الرابعة',gpa:3.70,email:'noor@hadba.edu.iq',phone:'07701234572',status:'active'},
+    {dbId:7,id:'CS-2024-007',fname:'عمر',mname:'صالح',lname:'الحسيني',dept:'علوم الحاسوب',year:'الثانية',gpa:2.90,email:'omar@hadba.edu.iq',phone:'07701234573',status:'active'},
+    {dbId:8,id:'CS-2024-008',fname:'هناء',mname:'يوسف',lname:'الزبيدي',dept:'هندسة البرمجيات',year:'الثالثة',gpa:3.30,email:'hanaa@hadba.edu.iq',phone:'07701234574',status:'active'},
+  ],
+  adminTeachers: [
+    {dbId:101,name:'د. أحمد الراوي',spec:'برمجة الحاسوب',dept:'علوم الحاسوب',rank:'أستاذ مساعد',subjects:'برمجة C++، خوارزميات',email:'a.rawi@hadba.edu.iq',phone:'07711234567',status:'active'},
+    {dbId:102,name:'د. سناء كريم',spec:'الدوائر الرقمية',dept:'هندسة البرمجيات',rank:'أستاذ',subjects:'التصميم المنطقي',email:'s.karim@hadba.edu.iq',phone:'07711234568',status:'active'},
+    {dbId:103,name:'د. محمد العبيدي',spec:'معمارية الحاسوب',dept:'علوم الحاسوب',rank:'أستاذ',subjects:'تنظيم الحاسوب',email:'m.ubaidi@hadba.edu.iq',phone:'07711234569',status:'active'},
+    {dbId:104,name:'د. هناء سالم',spec:'الإحصاء التطبيقي',dept:'نظم المعلومات',rank:'مدرّس',subjects:'الإحصاء، الرياضيات',email:'h.salem@hadba.edu.iq',phone:'07711234570',status:'active'},
+    {dbId:105,name:'د. كريم فاضل',spec:'هندسة البرمجيات',dept:'هندسة البرمجيات',rank:'أستاذ مساعد',subjects:'تحليل النظم، UML',email:'k.fadhil@hadba.edu.iq',phone:'07711234571',status:'inactive'},
+    {dbId:106,name:'د. ليلى حسن',spec:'قواعد البيانات',dept:'علوم الحاسوب',rank:'مدرّس مساعد',subjects:'قواعد البيانات، SQL',email:'l.hassan@hadba.edu.iq',phone:'07711234572',status:'active'},
+  ],
+  adminSubjects: [
+    {dbId:201,name:'برمجة C++',code:'CS-201',hours:3,dept:'علوم الحاسوب',teacher:'د. أحمد الراوي',status:'active'},
+    {dbId:202,name:'التصميم المنطقي',code:'CE-102',hours:3,dept:'هندسة البرمجيات',teacher:'د. سناء كريم',status:'active'},
+    {dbId:203,name:'تنظيم الحاسوب',code:'CS-301',hours:4,dept:'علوم الحاسوب',teacher:'د. محمد العبيدي',status:'active'},
+    {dbId:204,name:'الإحصاء',code:'IS-201',hours:2,dept:'نظم المعلومات',teacher:'د. هناء سالم',status:'active'},
+    {dbId:205,name:'تحليل النظم',code:'SE-301',hours:3,dept:'هندسة البرمجيات',teacher:'د. كريم فاضل',status:'inactive'},
+    {dbId:206,name:'قواعد البيانات',code:'CS-401',hours:4,dept:'علوم الحاسوب',teacher:'د. ليلى حسن',status:'active'},
+  ],
+  enrollmentRequests: [
+    {name:'رنا كريم الكعبي',score:'96.5%',dept:'علوم الحاسوب',date:'2025-01-15',status:'pending'},
+    {name:'أمير علي الهاشمي',score:'88.0%',dept:'هندسة البرمجيات',date:'2025-01-16',status:'pending'},
+    {name:'زينب محمد الموسوي',score:'92.3%',dept:'الذكاء الاصطناعي',date:'2025-01-17',status:'accepted'},
+    {name:'حسام ياسر الدليمي',score:'74.5%',dept:'نظم المعلومات',date:'2025-01-18',status:'rejected'},
+    {name:'مريم أحمد الشيباني',score:'85.0%',dept:'علوم الحاسوب',date:'2025-01-19',status:'pending'},
+    {name:'طارق عباس الجنابي',score:'91.8%',dept:'هندسة البرمجيات',date:'2025-01-20',status:'pending'},
+    {name:'سلمى حسين البغدادي',score:'78.2%',dept:'نظم المعلومات',date:'2025-01-21',status:'pending'},
+  ],
+  financeData: [
+    {id:1,studentNo:'2024001',name:'أيمن محمد علي',dept:'علوم الحاسوب',total:1500000,paid:1500000,status:'paid',payments:[{date:'2024-09-01',amount:1500000,method:'نقدي'}]},
+    {id:2,studentNo:'2024002',name:'سارة أحمد حسين',dept:'الهندسة المدنية',total:1800000,paid:900000,status:'partial',payments:[{date:'2024-09-01',amount:900000,method:'حوالة مصرفية'}]},
+    {id:3,studentNo:'2024003',name:'عمر خالد ناصر',dept:'الطب',total:2500000,paid:0,status:'unpaid',payments:[]},
+    {id:4,studentNo:'2024004',name:'منى رضا جعفر',dept:'علوم الحاسوب',total:1500000,paid:750000,status:'partial',payments:[{date:'2024-09-15',amount:750000,method:'نقدي'}]},
+    {id:5,studentNo:'2024005',name:'حسن علي موسى',dept:'الهندسة الكهربائية',total:1700000,paid:1700000,status:'paid',payments:[{date:'2024-09-01',amount:1700000,method:'بطاقة ائتمانية'}]},
+    {id:6,studentNo:'2024006',name:'زينب فاضل كاظم',dept:'الطب',total:2500000,paid:1000000,status:'partial',payments:[{date:'2024-10-01',amount:1000000,method:'نقدي'}]},
+    {id:7,studentNo:'2024007',name:'محمود جاسم ربيع',dept:'الهندسة المدنية',total:1800000,paid:0,status:'unpaid',payments:[]},
+  ],
+  hallsData: [
+    {id:1,name:'Q-101',type:'lecture',cap:60,floor:'الأول',status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]},
+    {id:2,name:'Q-102',type:'lecture',cap:80,floor:'الأول',status:'busy',subject:'رياضيات',teacher:'د. محمد عليوي',day:'الأحد',from:'08:00',to:'10:00',reservations:[]},
+    {id:3,name:'Q-201',type:'lecture',cap:100,floor:'الثاني',status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]},
+    {id:4,name:'Lab-A',type:'lab',cap:30,floor:'الأرضي',status:'busy',subject:'فيزياء عملي',teacher:'م. سارة ناصر',day:'الأحد',from:'10:00',to:'12:00',reservations:[]},
+    {id:5,name:'Lab-B',type:'lab',cap:25,floor:'الأرضي',status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]},
+    {id:6,name:'Conf-1',type:'conf',cap:20,floor:'الثالث',status:'reserved',subject:'اجتماع مجلس القسم',teacher:'رئاسة الجامعة',day:'الاثنين',from:'11:00',to:'13:00',reservations:[]},
+    {id:7,name:'Q-301',type:'lecture',cap:120,floor:'الثالث',status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]},
+    {id:8,name:'Q-302',type:'lecture',cap:90,floor:'الثالث',status:'busy',subject:'قانون',teacher:'د. علي حسين',day:'الأحد',from:'12:00',to:'14:00',reservations:[]},
+  ],
+  students_class: [
+    {name:'أيمن محمد الخزرجي',mid:28,prac:16,fin:30},
+    {name:'سارة أحمد العبيدي',mid:36,prac:19,fin:37},
+    {name:'محمد علي الجبوري',mid:22,prac:14,fin:26},
+    {name:'فاطمة حسن التميمي',mid:30,prac:17,fin:32},
+    {name:'علي عمر الشمري',mid:18,prac:12,fin:20},
+    {name:'نور خالد الربيعي',mid:34,prac:18,fin:35},
+    {name:'عمر صالح الحسيني',mid:26,prac:15,fin:28},
+    {name:'هناء يوسف الزبيدي',mid:32,prac:17,fin:34},
+  ],
+};
+
+/* ── نظام الحفظ والتحميل ── */
+const DB = {
+  PREFIX: 'hadba_uni_',
+  save(key, data){
+    try { localStorage.setItem(this.PREFIX + key, JSON.stringify(data)); } catch(e){}
+  },
+  load(key){
+    try {
+      const v = localStorage.getItem(this.PREFIX + key);
+      return v ? JSON.parse(v) : null;
+    } catch(e){ return null; }
+  },
+  saveAll(){
+    this.save('students',   adminStudents);
+    this.save('teachers',   adminTeachers);
+    this.save('subjects',   adminSubjects);
+    this.save('enrollment', enrollmentRequests);
+    this.save('finance',    financeData);
+    this.save('halls',      hallsData);
+    this.save('grades',     students_class);
+  },
+  resetAll(){
+    ['students','teachers','subjects','enrollment','finance','halls','grades']
+      .forEach(k => localStorage.removeItem(this.PREFIX + k));
+  }
+};
+
+/* ── تحميل البيانات (من localStorage أو الافتراضي) ── */
+let adminStudents       = DB.load('students')   || JSON.parse(JSON.stringify(DEFAULT_DATA.adminStudents));
+let adminTeachers       = DB.load('teachers')   || JSON.parse(JSON.stringify(DEFAULT_DATA.adminTeachers));
+let adminSubjects       = DB.load('subjects')   || JSON.parse(JSON.stringify(DEFAULT_DATA.adminSubjects));
+let enrollmentRequests  = DB.load('enrollment') || JSON.parse(JSON.stringify(DEFAULT_DATA.enrollmentRequests));
+let financeData         = DB.load('finance')    || JSON.parse(JSON.stringify(DEFAULT_DATA.financeData));
+let hallsData           = DB.load('halls')      || JSON.parse(JSON.stringify(DEFAULT_DATA.hallsData));
+const students_class    = DB.load('grades')     || JSON.parse(JSON.stringify(DEFAULT_DATA.students_class));
+
 const subjects_list = [
   {ar:'تنظيم الحاسوب',en:'CO'},{ar:'برمجة C++',en:'CPP'},
   {ar:'التصميم المنطقي',en:'LD'},{ar:'تحليل النظم',en:'SA'},
   {ar:'الإحصاء',en:'STAT'},{ar:'قواعد البيانات',en:'DB'}
 ];
 const studentSubjectGrades = [82,88,76,71,48,79];
-const prevSemGrades = [75,80,80,68,55,74];
-
-const students_class = [
-  {name:'أيمن محمد الخزرجي',mid:28,prac:16,fin:30},
-  {name:'سارة أحمد العبيدي',mid:36,prac:19,fin:37},
-  {name:'محمد علي الجبوري',mid:22,prac:14,fin:26},
-  {name:'فاطمة حسن التميمي',mid:30,prac:17,fin:32},
-  {name:'علي عمر الشمري',mid:18,prac:12,fin:20},
-  {name:'نور خالد الربيعي',mid:34,prac:18,fin:35},
-  {name:'عمر صالح الحسيني',mid:26,prac:15,fin:28},
-  {name:'هناء يوسف الزبيدي',mid:32,prac:17,fin:34}
-];
-
-// Admin data (mutable)
-let adminStudents = [
-  {id:'CS-2024-001',fname:'أيمن',mname:'محمد',lname:'الخزرجي',dept:'علوم الحاسوب',year:'الثالثة',gpa:3.42,email:'ayman@hadba.edu.iq',phone:'07701234567',status:'active'},
-  {id:'CS-2024-002',fname:'سارة',mname:'أحمد',lname:'العبيدي',dept:'علوم الحاسوب',year:'الثالثة',gpa:3.85,email:'sara@hadba.edu.iq',phone:'07701234568',status:'active'},
-  {id:'CS-2024-003',fname:'محمد',mname:'علي',lname:'الجبوري',dept:'هندسة البرمجيات',year:'الثانية',gpa:2.60,email:'mohammed@hadba.edu.iq',phone:'07701234569',status:'active'},
-  {id:'CS-2024-004',fname:'فاطمة',mname:'حسن',lname:'التميمي',dept:'علوم الحاسوب',year:'الثالثة',gpa:3.15,email:'fatima@hadba.edu.iq',phone:'07701234570',status:'active'},
-  {id:'CS-2024-005',fname:'علي',mname:'عمر',lname:'الشمري',dept:'الذكاء الاصطناعي',year:'الأولى',gpa:1.90,email:'ali@hadba.edu.iq',phone:'07701234571',status:'inactive'},
-  {id:'CS-2024-006',fname:'نور',mname:'خالد',lname:'الربيعي',dept:'نظم المعلومات',year:'الرابعة',gpa:3.70,email:'noor@hadba.edu.iq',phone:'07701234572',status:'active'},
-  {id:'CS-2024-007',fname:'عمر',mname:'صالح',lname:'الحسيني',dept:'علوم الحاسوب',year:'الثانية',gpa:2.90,email:'omar@hadba.edu.iq',phone:'07701234573',status:'active'},
-  {id:'CS-2024-008',fname:'هناء',mname:'يوسف',lname:'الزبيدي',dept:'هندسة البرمجيات',year:'الثالثة',gpa:3.30,email:'hanaa@hadba.edu.iq',phone:'07701234574',status:'active'},
-];
-
-let adminTeachers = [
-  {name:'د. أحمد الراوي',spec:'برمجة الحاسوب',dept:'علوم الحاسوب',rank:'أستاذ مساعد',subjects:'برمجة C++، خوارزميات',email:'a.rawi@hadba.edu.iq',phone:'07711234567',status:'active'},
-  {name:'د. سناء كريم',spec:'الدوائر الرقمية',dept:'هندسة البرمجيات',rank:'أستاذ',subjects:'التصميم المنطقي',email:'s.karim@hadba.edu.iq',phone:'07711234568',status:'active'},
-  {name:'د. محمد العبيدي',spec:'معمارية الحاسوب',dept:'علوم الحاسوب',rank:'أستاذ',subjects:'تنظيم الحاسوب',email:'m.ubaidi@hadba.edu.iq',phone:'07711234569',status:'active'},
-  {name:'د. هناء سالم',spec:'الإحصاء التطبيقي',dept:'نظم المعلومات',rank:'مدرّس',subjects:'الإحصاء، الرياضيات',email:'h.salem@hadba.edu.iq',phone:'07711234570',status:'active'},
-  {name:'د. كريم فاضل',spec:'هندسة البرمجيات',dept:'هندسة البرمجيات',rank:'أستاذ مساعد',subjects:'تحليل النظم، UML',email:'k.fadhil@hadba.edu.iq',phone:'07711234571',status:'inactive'},
-  {name:'د. ليلى حسن',spec:'قواعد البيانات',dept:'علوم الحاسوب',rank:'مدرّس مساعد',subjects:'قواعد البيانات، SQL',email:'l.hassan@hadba.edu.iq',phone:'07711234572',status:'active'},
-];
-
-let adminSubjects = [
-  {name:'برمجة C++',code:'CS-201',hours:3,dept:'علوم الحاسوب',teacher:'د. أحمد الراوي',status:'active'},
-  {name:'التصميم المنطقي',code:'CE-102',hours:3,dept:'هندسة البرمجيات',teacher:'د. سناء كريم',status:'active'},
-  {name:'تنظيم الحاسوب',code:'CS-301',hours:4,dept:'علوم الحاسوب',teacher:'د. محمد العبيدي',status:'active'},
-  {name:'الإحصاء',code:'IS-201',hours:2,dept:'نظم المعلومات',teacher:'د. هناء سالم',status:'active'},
-  {name:'تحليل النظم',code:'SE-301',hours:3,dept:'هندسة البرمجيات',teacher:'د. كريم فاضل',status:'inactive'},
-  {name:'قواعد البيانات',code:'CS-401',hours:4,dept:'علوم الحاسوب',teacher:'د. ليلى حسن',status:'active'},
-];
+const prevSemGrades        = [75,80,80,68,55,74];
 
 const activityLog = [
   {time:'منذ 5 دقائق',msg:'تم إضافة طالب جديد: رنا الكعبي',icon:'🎓'},
@@ -1169,16 +1234,6 @@ const activityLog = [
   {time:'منذ 3 ساعات',msg:'تسجيل طالب جديد: أمير الهاشمي',icon:'📋'},
   {time:'اليوم 09:00 ص',msg:'تحديث بيانات د. أحمد الراوي',icon:'👨‍🏫'},
   {time:'أمس',msg:'نسخة احتياطية تلقائية ناجحة',icon:'💾'},
-];
-
-const enrollmentRequests = [
-  {name:'رنا كريم الكعبي',score:'96.5%',dept:'علوم الحاسوب',date:'2025-01-15',status:'pending'},
-  {name:'أمير علي الهاشمي',score:'88.0%',dept:'هندسة البرمجيات',date:'2025-01-16',status:'pending'},
-  {name:'زينب محمد الموسوي',score:'92.3%',dept:'الذكاء الاصطناعي',date:'2025-01-17',status:'accepted'},
-  {name:'حسام ياسر الدليمي',score:'74.5%',dept:'نظم المعلومات',date:'2025-01-18',status:'rejected'},
-  {name:'مريم أحمد الشيباني',score:'85.0%',dept:'علوم الحاسوب',date:'2025-01-19',status:'pending'},
-  {name:'طارق عباس الجنابي',score:'91.8%',dept:'هندسة البرمجيات',date:'2025-01-20',status:'pending'},
-  {name:'سلمى حسين البغدادي',score:'78.2%',dept:'نظم المعلومات',date:'2025-01-21',status:'pending'},
 ];
 
 /* ══ EDIT INDEX ══ */
@@ -1480,7 +1535,7 @@ function filterTeacherTable(){
   const q=document.getElementById('teacherSearch').value.trim().toLowerCase();
   document.querySelectorAll('#teacherGradesBody tr').forEach(tr=>{tr.style.display=tr.dataset.name.includes(q)?'':'none';});
 }
-function saveGrades(){showToast('✅ تم حفظ الدرجات بنجاح');updateTeacherStats();}
+function saveGrades(){DB.save('grades', students_class);showToast('✅ تم حفظ الدرجات بنجاح');updateTeacherStats();}
 function updateTeacherStats(){
   const tots=students_class.map(s=>total(s));
   const avg=(tots.reduce((a,b)=>a+b,0)/tots.length).toFixed(1);
@@ -1700,6 +1755,7 @@ function buildEnrollment(){
 }
 function enrollAction(i,status){
   enrollmentRequests[i].status=status;
+  DB.save('enrollment', enrollmentRequests);
   buildEnrollment();
   showToast(status==='accepted'?'✅ تم قبول الطالب':'❌ تم رفض الطلب');
 }
@@ -1901,19 +1957,16 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'),2500);
 }
 
+function confirmResetData(){
+  const ok = confirm('⚠️ سيتم حذف جميع التغييرات والعودة للبيانات الافتراضية. هل تريد المتابعة؟');
+  if(!ok) return;
+  DB.resetAll();
+  location.reload();
+}
+
 /* ══════════════════════════════════════════
    FINANCE MODULE
 ══════════════════════════════════════════ */
-let financeData = [
-  {id:1, studentNo:'2024001', name:'أيمن محمد علي', dept:'علوم الحاسوب', total:1500000, paid:1500000, status:'paid', payments:[{date:'2024-09-01',amount:1500000,method:'نقدي'}]},
-  {id:2, studentNo:'2024002', name:'سارة أحمد حسين', dept:'الهندسة المدنية', total:1800000, paid:900000, status:'partial', payments:[{date:'2024-09-01',amount:900000,method:'حوالة مصرفية'}]},
-  {id:3, studentNo:'2024003', name:'عمر خالد ناصر', dept:'الطب', total:2500000, paid:0, status:'unpaid', payments:[]},
-  {id:4, studentNo:'2024004', name:'منى رضا جعفر', dept:'علوم الحاسوب', total:1500000, paid:750000, status:'partial', payments:[{date:'2024-09-15',amount:750000,method:'نقدي'}]},
-  {id:5, studentNo:'2024005', name:'حسن علي موسى', dept:'الهندسة الكهربائية', total:1700000, paid:1700000, status:'paid', payments:[{date:'2024-09-01',amount:1700000,method:'بطاقة ائتمانية'}]},
-  {id:6, studentNo:'2024006', name:'زينب فاضل كاظم', dept:'الطب', total:2500000, paid:1000000, status:'partial', payments:[{date:'2024-10-01',amount:1000000,method:'نقدي'}]},
-  {id:7, studentNo:'2024007', name:'محمود جاسم ربيع', dept:'الهندسة المدنية', total:1800000, paid:0, status:'unpaid', payments:[]},
-];
-
 let currentFinTab = 'payments';
 
 function finTab(tab, el) {
@@ -2010,6 +2063,7 @@ function savePayment() {
   f.payments.push({date: new Date().toISOString().slice(0,10), amount, method, note});
   buildFinanceStats();
   buildFinanceTable();
+  DB.save('finance', financeData);
   document.getElementById('pay-student-no').value='';
   document.getElementById('pay-amount').value='';
   document.getElementById('pay-note').value='';
@@ -2049,17 +2103,6 @@ function buildFinanceReport() {
 /* ══════════════════════════════════════════
    HALLS MODULE
 ══════════════════════════════════════════ */
-let hallsData = [
-  {id:1,name:'Q-101',type:'lecture',cap:60,floor:'الأول',status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]},
-  {id:2,name:'Q-102',type:'lecture',cap:80,floor:'الأول',status:'busy',subject:'رياضيات',teacher:'د. محمد عليوي',day:'الأحد',from:'08:00',to:'10:00',reservations:[]},
-  {id:3,name:'Q-201',type:'lecture',cap:100,floor:'الثاني',status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]},
-  {id:4,name:'Lab-A',type:'lab',cap:30,floor:'الأرضي',status:'busy',subject:'فيزياء عملي',teacher:'م. سارة ناصر',day:'الأحد',from:'10:00',to:'12:00',reservations:[]},
-  {id:5,name:'Lab-B',type:'lab',cap:25,floor:'الأرضي',status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]},
-  {id:6,name:'Conf-1',type:'conf',cap:20,floor:'الثالث',status:'reserved',subject:'اجتماع مجلس القسم',teacher:'رئاسة الجامعة',day:'الاثنين',from:'11:00',to:'13:00',reservations:[]},
-  {id:7,name:'Q-301',type:'lecture',cap:120,floor:'الثالث',status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]},
-  {id:8,name:'Q-302',type:'lecture',cap:90,floor:'الثالث',status:'busy',subject:'قانون',teacher:'د. علي حسين',day:'الأحد',from:'12:00',to:'14:00',reservations:[]},
-];
-
 let currentHallView = 'grid';
 let reservingHallId = null;
 
@@ -2166,6 +2209,7 @@ function saveReservation() {
   const to      = document.getElementById('res-to').value;
   if(!subject||!teacher){showToast('❌ أدخل اسم المادة والأستاذ');return;}
   h.status='busy'; h.subject=subject; h.teacher=teacher; h.day=day; h.from=from; h.to=to;
+  DB.save('halls', hallsData);
   buildHallStats();
   buildHalls();
   closeModal('reserveModal');
@@ -2175,6 +2219,7 @@ function saveReservation() {
 function freeHall(id) {
   const h=hallsData.find(x=>x.id===id);
   h.status='free';h.subject='';h.teacher='';h.day='';h.from='';h.to='';
+  DB.save('halls', hallsData);
   buildHallStats();buildHalls();
   showToast('🔓 تم تحرير القاعة '+h.name);
 }
@@ -2186,6 +2231,7 @@ function saveHall(){
   const floor = document.getElementById('hall-inp-floor').value.trim()||'الأول';
   if(!name){showToast('❌ أدخل اسم القاعة');return;}
   hallsData.push({id:hallsData.length+1,name,type,cap,floor,status:'free',subject:'',teacher:'',day:'',from:'',to:'',reservations:[]});
+  DB.save('halls', hallsData);
   buildHallStats();buildHalls();
   closeModal('hallModal');
   showToast('✅ تمت إضافة القاعة '+name);
@@ -2234,17 +2280,20 @@ const API = {
   async createStudent(b){
     const deptName = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
     adminStudents.push({dbId:Date.now(), id:b.student_no, fname:b.fname, mname:b.mname||'', lname:b.lname, dept:deptName, year:b.study_year, gpa:0, email:b.email||'', phone:b.phone||'', status:b.status});
+    DB.save('students', adminStudents);
     return {success:true};
   },
   async updateStudent(id, b){
     const deptName = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
     const s = adminStudents.find(x=>x.dbId===id);
     if(s) Object.assign(s, {fname:b.fname, mname:b.mname||'', lname:b.lname, dept:deptName, year:b.study_year, email:b.email||'', phone:b.phone||'', status:b.status});
+    DB.save('students', adminStudents);
     return {success:true};
   },
   async deleteStudent(id){
     const i = adminStudents.findIndex(x=>x.dbId===id);
     if(i!==-1) adminStudents.splice(i,1);
+    DB.save('students', adminStudents);
     return {success:true};
   },
 
@@ -2252,17 +2301,20 @@ const API = {
   async createTeacher(b){
     const deptName = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
     adminTeachers.push({dbId:Date.now(), name:b.name, spec:b.speciality||'', dept:deptName, rank:b.academic_rank||'مدرّس', email:b.email||'', phone:b.phone||'', subjects:'', status:'active'});
+    DB.save('teachers', adminTeachers);
     return {success:true};
   },
   async updateTeacher(id, b){
     const deptName = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
     const t = adminTeachers.find(x=>x.dbId===id);
     if(t) Object.assign(t, {name:b.name, spec:b.speciality||'', dept:deptName, rank:b.academic_rank||'مدرّس', email:b.email||'', phone:b.phone||'', status:'active'});
+    DB.save('teachers', adminTeachers);
     return {success:true};
   },
   async deleteTeacher(id){
     const i = adminTeachers.findIndex(x=>x.dbId===id);
     if(i!==-1) adminTeachers.splice(i,1);
+    DB.save('teachers', adminTeachers);
     return {success:true};
   },
 
@@ -2271,6 +2323,7 @@ const API = {
     const deptName    = (window._depts||[]).find(d=>d.id===b.dept_id)?.name || 'علوم الحاسوب';
     const teacherName = adminTeachers.find(t=>t.dbId===b.teacher_id)?.name || '—';
     adminSubjects.push({dbId:Date.now(), name:b.name, code:b.code, hours:b.credit_hours, dept:deptName, teacher:teacherName, status:b.status||'active'});
+    DB.save('subjects', adminSubjects);
     return {success:true};
   },
   async updateSubject(id, b){
@@ -2278,11 +2331,13 @@ const API = {
     const teacherName = adminTeachers.find(t=>t.dbId===b.teacher_id)?.name || '—';
     const s = adminSubjects.find(x=>x.dbId===id);
     if(s) Object.assign(s, {name:b.name, code:b.code, hours:b.credit_hours, dept:deptName, teacher:teacherName, status:b.status||'active'});
+    DB.save('subjects', adminSubjects);
     return {success:true};
   },
   async deleteSubject(id){
     const i = adminSubjects.findIndex(x=>x.dbId===id);
     if(i!==-1) adminSubjects.splice(i,1);
+    DB.save('subjects', adminSubjects);
     return {success:true};
   },
 };
